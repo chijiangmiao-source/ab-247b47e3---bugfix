@@ -152,37 +152,33 @@
     }
     factors = factors.filter(function (p) { return !isIdentity(p); });
 
-    var windowSize = gens.length <= MAX_SYMBOLS ? 48 : Math.max(1, factors.length);
-    var windows = [];
-    for (var start = 0; start < factors.length; start += windowSize) {
-      var window = factors.slice(start, start + windowSize);
-      var guard = 0;
-      for (;;) {
-        if (++guard > 200000) throw new Error('normalization did not converge');
-        var wi = -1;
-        for (var i = 0; i < window.length; i++) if (eqPerm(window[i], W0)) { wi = i; break; }
-        if (wi >= 0) {
-          window.splice(wi, 1);
-          delta += 1;
-          for (var j = 0; j < wi; j++) window[j] = tau(window[j]);
-          continue;
-        }
-        var changed = false;
-        for (var k = 0; k + 1 < window.length; k++) {
-          var pair = normalizePair(window[k], window[k + 1]);
-          if (!eqPerm(pair[0], window[k]) || !eqPerm(pair[1], window[k + 1])) {
-            window[k] = pair[0];
-            window[k + 1] = pair[1];
-            window = window.filter(function (p) { return !isIdentity(p); });
-            changed = true;
-            break;
-          }
-        }
-        if (!changed) break;
+    // 整条因子链作为一个整体归约：Δ 吸收对前方所有因子施加 τ，
+    // 相邻对左权重化跨越任意位置，直至全链收敛（不得按段拆分，
+    // 否则 Δ 穿越与边界左权重都会丢失，规范形不再唯一）。
+    var guard = 0;
+    for (;;) {
+      if (++guard > 200000) throw new Error('normalization did not converge');
+      var wi = -1;
+      for (var i = 0; i < factors.length; i++) if (eqPerm(factors[i], W0)) { wi = i; break; }
+      if (wi >= 0) {
+        factors.splice(wi, 1);
+        delta += 1;
+        for (var j = 0; j < wi; j++) factors[j] = tau(factors[j]);
+        continue;
       }
-      windows.push(window);
+      var changed = false;
+      for (var k = 0; k + 1 < factors.length; k++) {
+        var pair = normalizePair(factors[k], factors[k + 1]);
+        if (!eqPerm(pair[0], factors[k]) || !eqPerm(pair[1], factors[k + 1])) {
+          factors[k] = pair[0];
+          factors[k + 1] = pair[1];
+          factors = factors.filter(function (p) { return !isIdentity(p); });
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) break;
     }
-    factors = [].concat.apply([], windows);
     return { delta: delta, factors: factors };
   }
 
