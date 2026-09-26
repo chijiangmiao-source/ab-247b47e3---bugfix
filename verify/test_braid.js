@@ -160,6 +160,108 @@ for (t = 0; t < 200; t++) {
 }
 check('200 例：真简单元 / 左权重 / 因子字回读 / 往返幂等 / 确定性', allOk);
 
+console.log('[7] 长混合记录等价改写（56 符号、正负混合、n=5 的束路复核）');
+
+// 五根光纤的一次束路复核记录：56 个符号、正负发生器混合。
+// 记录 B 与 A 的唯一差异：中后段（第 48–50 个符号）σ2 σ3 σ2 按三项编织关系改写为 σ3 σ2 σ3。
+// 两条记录必须判定等价：规范因子链完全相同，且不存在首个分歧。
+var LONG_A = (
+  'σ3^-1 σ2^-1 σ1^-1 σ4^-1 σ3^-1 σ3 σ2^-1 σ2^-1 σ3^-1 σ4^-1 ' +
+  'σ3^-1 σ4^-1 σ2 σ4^-1 σ2^-1 σ3 σ2^-1 σ4 σ3 σ4 ' +
+  'σ1^-1 σ3^-1 σ1^-1 σ3^-1 σ1^-1 σ3^-1 σ2^-1 σ1 σ3^-1 σ1 ' +
+  'σ2 σ2^-1 σ3^-1 σ3^-1 σ3^-1 σ2 σ1^-1 σ4^-1 σ3^-1 σ2 ' +
+  'σ2 σ4^-1 σ2 σ1 σ3 σ2 σ1^-1 σ2 σ3 σ2 ' +   // ← 第 48–50 个符号：σ2 σ3 σ2
+  'σ2^-1 σ3 σ3^-1 σ3^-1 σ3^-1 σ2'
+);
+var LONG_B = (
+  'σ3^-1 σ2^-1 σ1^-1 σ4^-1 σ3^-1 σ3 σ2^-1 σ2^-1 σ3^-1 σ4^-1 ' +
+  'σ3^-1 σ4^-1 σ2 σ4^-1 σ2^-1 σ3 σ2^-1 σ4 σ3 σ4 ' +
+  'σ1^-1 σ3^-1 σ1^-1 σ3^-1 σ1^-1 σ3^-1 σ2^-1 σ1 σ3^-1 σ1 ' +
+  'σ2 σ2^-1 σ3^-1 σ3^-1 σ3^-1 σ2 σ1^-1 σ4^-1 σ3^-1 σ2 ' +
+  'σ2 σ4^-1 σ2 σ1 σ3 σ2 σ1^-1 σ3 σ2 σ3 ' +   // ← 改写后：σ3 σ2 σ3
+  'σ2^-1 σ3 σ3^-1 σ3^-1 σ3^-1 σ2'
+);
+check('两条记录均为 56 个符号（≤ 80 上限）',
+  LONG_A.split(' ').length === 56 && LONG_B.split(' ').length === 56);
+r = Braid.compareWords(5, LONG_A, LONG_B);
+check('56 符号长记录解析与计算成功', r.ok);
+check('中后段 σ2σ3σ2 ↔ σ3σ2σ3 改写后判定等价', r.ok && r.equivalent);
+check('两侧呈现完全相同的规范因子链', r.ok && eqJson(r.nfA, r.nfB));
+check('不出现首个分歧', r.ok && r.divergence === null);
+
+console.log('[8] 二至六根光纤回归（等价与不等价双侧结论）');
+
+var CASES_EQ = [
+  [2, 'σ1 σ1^-1', ''],
+  [3, 'σ1 σ2 σ1', 'σ2 σ1 σ2'],
+  [4, 'σ1 σ3', 'σ3 σ1'],
+  [5, 'σ2 σ3 σ2', 'σ3 σ2 σ3'],
+  [5, 'σ1^-1 σ3', 'σ3 σ1^-1'],
+  [6, 'σ1 σ5', 'σ5 σ1'],
+  [6, 'σ4 σ5 σ4', 'σ5 σ4 σ5'],
+  [6, 'σ2 σ5^-1', 'σ5^-1 σ2'],
+];
+allOk = true;
+for (t = 0; t < CASES_EQ.length; t++) {
+  var ce = Braid.compareWords(CASES_EQ[t][0], CASES_EQ[t][1], CASES_EQ[t][2]);
+  if (!(ce.ok && ce.equivalent && eqJson(ce.nfA, ce.nfB) && ce.divergence === null)) allOk = false;
+}
+check('n=2…6：远交换 / 三项编织 / 逆元抵消均判等价且规范链一致', allOk);
+
+var CASES_NE = [
+  [2, 'σ1', 'σ1 σ1'],
+  [3, 'σ1 σ2', 'σ2 σ1'],
+  [4, 'σ1 σ2^-1', 'σ2^-1 σ1'],
+  [5, 'σ3 σ4', 'σ4 σ3'],
+  [6, 'σ2 σ3', 'σ3 σ2'],
+];
+allOk = true;
+for (t = 0; t < CASES_NE.length; t++) {
+  var cn = Braid.compareWords(CASES_NE[t][0], CASES_NE[t][1], CASES_NE[t][2]);
+  if (!(cn.ok && !cn.equivalent && cn.divergence)) allOk = false;   // 不等价且保留可复算的分歧
+}
+check('n=2…6：异辫判不等价并给出首个分歧', allOk);
+
+console.log('[9] 同置换异辫与 80 符号边界');
+
+// 诱导置换相同（含非恒等情形）但辫本身不同：必须判不等价并保留分歧
+r = Braid.compareWords(3, 'σ1 σ1', 'σ2 σ2');
+check('n=3: σ1σ1 与 σ2σ2 诱导置换同为恒等', r.ok && Braid.perms.isIdentity(r.permA) && Braid.perms.isIdentity(r.permB));
+check('n=3: σ1σ1 与 σ2σ2 仍判不等价（分歧在第 1 个规范因子）',
+  r.ok && !r.equivalent && r.divergence && r.divergence.kind === 'factor' && r.divergence.index === 0);
+r = Braid.compareWords(3, 'σ1 σ2 σ2', 'σ2 σ2 σ1');
+check('n=3: σ1σ2σ2 与 σ2σ2σ1 诱导置换相同（非恒等）',
+  r.ok && Braid.perms.eqPerm(r.permA, r.permB) && !Braid.perms.isIdentity(r.permA));
+check('n=3: σ1σ2σ2 与 σ2σ2σ1 仍判不等价且分歧可复算', r.ok && !r.equivalent && !!r.divergence);
+
+// 80 符号边界：恰好 80 个符号合法且语义精确；81 个符号拒绝
+var w40 = randWord(6, 40);
+var rec80 = w40.concat(invert(w40));
+check('80 个符号的记录合法', Braid.parse(rec80.map(function (g) {
+  return 'σ' + g.i + (g.e < 0 ? '^-1' : '');
+}).join(' '), 6).ok);
+var nf80 = Braid.normalForm(6, rec80);
+check('80 符号 w·w^-1 ≡ ε（逆元抵消在边界处仍精确）', nf80.delta === 0 && nf80.factors.length === 0);
+p = Braid.parse(new Array(82).join('σ1 ').trim(), 6);
+check('81 个符号被拒绝（length 错误）', !p.ok && p.error.type === 'length');
+
+// 80 符号长记录的三项编织改写：等价、规范链一致、无分歧
+var w80 = randWord(5, 77).concat([{ i: 2, e: 1 }, { i: 3, e: 1 }, { i: 2, e: 1 }]);
+var w80b = w80.slice(0, 77).concat([{ i: 3, e: 1 }, { i: 2, e: 1 }, { i: 3, e: 1 }]);
+check('改写用例恰好 80 个符号', w80.length === 80 && w80b.length === 80);
+check('80 符号记录末尾 σ2σ3σ2 ↔ σ3σ2σ3 改写保持等价',
+  eqJson(Braid.normalForm(5, w80), Braid.normalForm(5, w80b)));
+
+// 长记录规范形往返一致性（覆盖接近输入上限的长度）
+allOk = true;
+for (t = 0; t < 60; t++) {
+  n = 2 + Math.floor(rnd() * 5);
+  var wl = randWord(n, 40 + Math.floor(rnd() * 41));   // 40–80 个符号
+  var nfl = Braid.normalForm(n, wl);
+  if (!eqJson(Braid.normalForm(n, nfToGens(n, nfl)), nfl)) allOk = false;
+}
+check('60 例（40–80 符号）：规范形往返一致', allOk);
+
 console.log('');
 console.log('辫群代码测试：通过 ' + passed + ' 项，失败 ' + failed + ' 项');
 process.exit(failed ? 1 : 0);

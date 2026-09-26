@@ -131,6 +131,8 @@
    * 2) 反复：把等于 Δ 的因子吸收进指数（前方因子施加 τ），
    *    并对首个非左权重相邻对做局部规范化、删去单位因子。
    *    度量 (非Δ总长, 长度序列字典序) 保证终止；结果唯一。
+   * 整条因子链必须作为一个整体规范化：Δ 的吸收与相邻对的左权重化都可能
+   * 跨越任意位置传导，任何分段处理都会漏掉跨段的相互作用而破坏唯一性。
    */
   function normalForm(n, gens) {
     if (!Number.isInteger(n) || n < MIN_STRANDS || n > MAX_STRANDS) throw new Error('strand count out of range');
@@ -152,37 +154,31 @@
     }
     factors = factors.filter(function (p) { return !isIdentity(p); });
 
-    var windowSize = gens.length <= MAX_SYMBOLS ? 48 : Math.max(1, factors.length);
-    var windows = [];
-    for (var start = 0; start < factors.length; start += windowSize) {
-      var window = factors.slice(start, start + windowSize);
-      var guard = 0;
-      for (;;) {
-        if (++guard > 200000) throw new Error('normalization did not converge');
-        var wi = -1;
-        for (var i = 0; i < window.length; i++) if (eqPerm(window[i], W0)) { wi = i; break; }
-        if (wi >= 0) {
-          window.splice(wi, 1);
-          delta += 1;
-          for (var j = 0; j < wi; j++) window[j] = tau(window[j]);
-          continue;
-        }
-        var changed = false;
-        for (var k = 0; k + 1 < window.length; k++) {
-          var pair = normalizePair(window[k], window[k + 1]);
-          if (!eqPerm(pair[0], window[k]) || !eqPerm(pair[1], window[k + 1])) {
-            window[k] = pair[0];
-            window[k + 1] = pair[1];
-            window = window.filter(function (p) { return !isIdentity(p); });
-            changed = true;
-            break;
-          }
-        }
-        if (!changed) break;
+    var guard = 0;
+    for (;;) {
+      if (++guard > 200000) throw new Error('normalization did not converge');
+      var wi = -1;
+      for (var i = 0; i < factors.length; i++) if (eqPerm(factors[i], W0)) { wi = i; break; }
+      if (wi >= 0) {
+        // Δ 左移进入指数：穿越前方因子时施加 τ（X·Δ = Δ·τ(X)）。
+        factors.splice(wi, 1);
+        delta += 1;
+        for (var j = 0; j < wi; j++) factors[j] = tau(factors[j]);
+        continue;
       }
-      windows.push(window);
+      var changed = false;
+      for (var k = 0; k + 1 < factors.length; k++) {
+        var pair = normalizePair(factors[k], factors[k + 1]);
+        if (!eqPerm(pair[0], factors[k]) || !eqPerm(pair[1], factors[k + 1])) {
+          factors[k] = pair[0];
+          factors[k + 1] = pair[1];
+          factors = factors.filter(function (p) { return !isIdentity(p); });
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) break;
     }
-    factors = [].concat.apply([], windows);
     return { delta: delta, factors: factors };
   }
 
